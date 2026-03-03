@@ -1,0 +1,173 @@
+import streamlit as st
+from indeterminatebeam import Beam, Support, PointLoadV, PointLoadH, DistributedLoadV, PointTorque, TrapezoidalLoadV
+import plotly.graph_objects as go
+import pandas as pd
+import numpy as np
+
+st.title("Indeterminate 1D Beam Solver with Standard Profiles")
+st.markdown("Select standard profile, grade, add supports/loads, and analyze. Units: SI (m, N, Pa). Loads downward = negative.")
+
+# ==================== Beam Profiles (expanded with real data) ====================
+profiles = {
+    "European IPE": [
+        {"name": "IPE 80", "h": 0.080, "b": 0.046, "tw": 0.0038, "tf": 0.0052, "A": 7.64e-4, "Ixx": 80.1e-8, "Iyy": 8.49e-8},
+        {"name": "IPE 100", "h": 0.100, "b": 0.055, "tw": 0.0041, "tf": 0.0057, "A": 10.32e-4, "Ixx": 171e-8, "Iyy": 15.9e-8},
+        {"name": "IPE 120", "h": 0.120, "b": 0.064, "tw": 0.0044, "tf": 0.0063, "A": 13.21e-4, "Ixx": 318e-8, "Iyy": 27.7e-8},
+        {"name": "IPE 140", "h": 0.140, "b": 0.073, "tw": 0.0047, "tf": 0.0069, "A": 16.43e-4, "Ixx": 541e-8, "Iyy": 44.8e-8},
+        {"name": "IPE 160", "h": 0.160, "b": 0.082, "tw": 0.0050, "tf": 0.0074, "A": 20.09e-4, "Ixx": 869e-8, "Iyy": 68.3e-8},
+        {"name": "IPE 180", "h": 0.180, "b": 0.091, "tw": 0.0053, "tf": 0.0080, "A": 25.15e-4, "Ixx": 1317e-8, "Iyy": 101e-8},
+        {"name": "IPE 200", "h": 0.200, "b": 0.100, "tw": 0.0056, "tf": 0.0085, "A": 28.48e-4, "Ixx": 1943e-8, "Iyy": 142e-8},
+        # Add more as needed...
+    ],
+    "European HEA (wide flange)": [
+        {"name": "HEA 100", "h": 0.096, "b": 0.100, "tw": 0.0050, "tf": 0.0080, "A": 21.24e-4, "Ixx": 349e-8, "Iyy": 133e-8},
+        {"name": "HEA 200", "h": 0.190, "b": 0.200, "tw": 0.0065, "tf": 0.0100, "A": 53.83e-4, "Ixx": 3692e-8, "Iyy": 1336e-8},
+        {"name": "HEA 300", "h": 0.290, "b": 0.300, "tw": 0.0085, "tf": 0.0140, "A": 112.5e-4, "Ixx": 18270e-8, "Iyy": 7888e-8},
+    ],
+    "European HEB (wide flange)": [
+        {"name": "HEB 200", "h": 0.200, "b": 0.200, "tw": 0.0090, "tf": 0.0150, "A": 78.1e-4, "Ixx": 5696e-8, "Iyy": 2003e-8},
+        {"name": "HEB 300", "h": 0.300, "b": 0.300, "tw": 0.0110, "tf": 0.0190, "A": 149e-4, "Ixx": 25170e-8, "Iyy": 9189e-8},
+    ],
+    "American W (Wide Flange)": [
+        {"name": "W8x10", "h": 0.206, "b": 0.102, "tw": 0.0043, "tf": 0.0058, "A": 19.0e-4, "Ixx": 303e-8, "Iyy": 16.3e-8},  # approx converted
+        {"name": "W12x19", "h": 0.306, "b": 0.165, "tw": 0.0058, "tf": 0.0084, "A": 36.1e-4, "Ixx": 1300e-8, "Iyy": 88e-8},
+        {"name": "W14x22", "h": 0.356, "b": 0.171, "tw": 0.0058, "tf": 0.0090, "A": 41.9e-4, "Ixx": 1990e-8, "Iyy": 103e-8},
+    ],
+    "Japanese H": [
+        {"name": "H 100×100×6×8", "h": 0.100, "b": 0.100, "tw": 0.006, "tf": 0.008, "A": 21.59e-4, "Ixx": 378e-8, "Iyy": 134e-8},
+    ],
+    "Indian ISMB": [
+        {"name": "ISMB 200", "h": 0.200, "b": 0.100, "tw": 0.0057, "tf": 0.0108, "A": 25.4e-4, "Ixx": 2235e-8, "Iyy": 152e-8},
+        {"name": "ISMB 250", "h": 0.250, "b": 0.125, "tw": 0.0069, "tf": 0.0126, "A": 38.7e-4, "Ixx": 5130e-8, "Iyy": 336e-8},
+        {"name": "ISMB 300", "h": 0.300, "b": 0.140, "tw": 0.0077, "tf": 0.0131, "A": 46.3e-4, "Ixx": 8356e-8, "Iyy": 470e-8},
+    ],
+}
+
+steel_grades = {
+    "S235": 2.10e11,
+    "S275": 2.10e11,
+    "S355": 2.10e11,
+    "S460": 2.10e11,  # Often called S455/S460
+    "MoCr": 2.10e11,  # e.g. 16Mo3 or similar; same E
+}
+
+# Beam properties
+length = st.number_input("Beam Length (m)", min_value=0.1, value=6.0, step=0.1)
+
+standard = st.selectbox("Beam Standard / Family", list(profiles.keys()))
+profile_options = [p["name"] for p in profiles[standard]]
+profile_name = st.selectbox("Profile", profile_options)
+profile = next(p for p in profiles[standard] if p["name"] == profile_name)
+
+st.subheader("Selected Profile Properties")
+st.write(f"h = {profile['h']:.3f} m | b = {profile['b']:.3f} m | tw = {profile['tw']:.4f} m | tf = {profile['tf']:.4f} m")
+st.write(f"A = {profile['A']:.4e} m² | Ixx = {profile['Ixx']:.3e} m⁴ (strong axis)")
+
+grade = st.selectbox("Steel Grade", list(steel_grades.keys()))
+E = steel_grades[grade]
+G_input = st.number_input("Shear Modulus G (Pa; 0 = Euler-Bernoulli, no shear def.)", value=8.1e10 if grade != "MoCr" else 8.0e10)
+G = None if G_input <= 0 else G_input
+
+I = profile["Ixx"]
+A = profile["A"]
+
+beam = Beam(length, E=E, I=I, A=A, G=G)
+
+# Supports
+st.subheader("Supports")
+if 'supports' not in st.session_state:
+    st.session_state.supports = [{"x": 0.0, "fx": False, "fy": True, "m": False},
+                                 {"x": length, "fx": False, "fy": True, "m": False}]
+
+num_sup = st.number_input("Number of Supports", 1, 10, len(st.session_state.supports))
+while len(st.session_state.supports) < num_sup:
+    st.session_state.supports.append({"x": 0.0, "fx": False, "fy": True, "m": False})
+while len(st.session_state.supports) > num_sup:
+    st.session_state.supports.pop()
+
+for i, s in enumerate(st.session_state.supports):
+    with st.expander(f"Support {i+1} at x = {s['x']:.2f} m"):
+        s["x"] = st.number_input("Position (m)", value=s["x"], key=f"s_x_{i}")
+        col1, col2, col3 = st.columns(3)
+        s["fx"] = col1.checkbox("Restrain X (axial)", value=s["fx"], key=f"s_fx_{i}")
+        s["fy"] = col2.checkbox("Restrain Y (vertical)", value=s["fy"], key=f"s_fy_{i}")
+        s["m"]  = col3.checkbox("Restrain Rotation", value=s["m"], key=f"s_m_{i}")
+
+# Loads (same as before, expanded slightly)
+st.subheader("Loads")
+if 'loads' not in st.session_state:
+    st.session_state.loads = []
+
+num_loads = st.number_input("Number of Loads", 0, 15, max(1, len(st.session_state.loads)))
+while len(st.session_state.loads) < num_loads:
+    st.session_state.loads.append({"type": "Point Vertical", "x": length/2, "value": -10e3})
+while len(st.session_state.loads) > num_loads:
+    st.session_state.loads.pop()
+
+load_types = ["Point Vertical (N)", "Point Horizontal (N)", "UDL (N/m)", "Trapezoidal (N/m → N/m)", "Point Moment (N·m)"]
+
+for i, ld in enumerate(st.session_state.loads):
+    with st.expander(f"Load {i+1}"):
+        ld["type"] = st.selectbox("Type", load_types, index=load_types.index(ld.get("type", "Point Vertical (N)")), key=f"lt_{i}")
+        ld["x"] = st.number_input("Position / Start (m)", 0.0, length, ld.get("x", length/2), key=f"lx_{i}")
+        if "Point Vertical" in ld["type"]:
+            ld["value"] = st.number_input("Force (N; negative = down)", value=ld.get("value", -10e3), key=f"lv_{i}")
+        elif "Point Horizontal" in ld["type"]:
+            ld["value"] = st.number_input("Force (N)", value=ld.get("value", 0.0), key=f"lh_{i}")
+        elif "UDL" in ld["type"]:
+            ld["value"] = st.number_input("Intensity (N/m; negative = down)", value=ld.get("value", -5e3), key=f"udl_{i}")
+            ld["end"] = st.number_input("End (m)", ld["x"], length, ld.get("end", length), key=f"udle_{i}")
+        elif "Trapezoidal" in ld["type"]:
+            ld["value_start"] = st.number_input("Start intensity (N/m)", value=ld.get("value_start", -5e3), key=f"ts_{i}")
+            ld["value_end"] = st.number_input("End intensity (N/m)", value=ld.get("value_end", -5e3), key=f"te_{i}")
+            ld["end"] = st.number_input("End (m)", ld["x"], length, ld.get("end", length), key=f"te_{i}")
+        elif "Moment" in ld["type"]:
+            ld["value"] = st.number_input("Moment (N·m; clockwise +)", value=ld.get("value", 0.0), key=f"lm_{i}")
+
+if st.button("Analyze"):
+    try:
+        # Clear previous supports/loads
+        beam._supports = []
+        beam._loads = []
+
+        # Add supports
+        for s in st.session_state.supports:
+            restr = (1 if s["fx"] else 0, 1 if s["fy"] else 0, 1 if s["m"] else 0)
+            beam.add_supports(Support(s["x"], restraint=restr))
+
+        # Add loads
+        for ld in st.session_state.loads:
+            if "Point Vertical" in ld["type"]:
+                beam.add_loads(PointLoadV(ld["value"], ld["x"]))
+            elif "Point Horizontal" in ld["type"]:
+                beam.add_loads(PointLoadH(ld["value"], ld["x"]))
+            elif "UDL" in ld["type"]:
+                beam.add_loads(DistributedLoadV(ld["value"], (ld["x"], ld.get("end", length))))
+            elif "Trapezoidal" in ld["type"]:
+                beam.add_loads(TrapezoidalLoadV((ld["value_start"], ld["value_end"]), (ld["x"], ld.get("end", length))))
+            elif "Moment" in ld["type"]:
+                beam.add_loads(PointTorque(ld["value"], ld["x"]))
+
+        beam.analyse()
+        st.success("Analysis successful!")
+
+        # Plots
+        st.plotly_chart(beam.plot_beam_diagram(), use_container_width=True)
+        st.plotly_chart(beam.plot_reaction_forces(), use_container_width=True)
+        st.plotly_chart(beam.plot_shear_force(), use_container_width=True)
+        st.plotly_chart(beam.plot_bending_moment(), use_container_width=True)
+        st.plotly_chart(beam.plot_deflection(), use_container_width=True)
+
+        # Results table
+        res = beam.get_results()
+        df = pd.DataFrame({
+            "x (m)": res["x"],
+            "Deflection (mm)": np.array(res["deflection"]) * 1000,
+            "Shear (kN)": np.array(res["shear_force"]) / 1000,
+            "Moment (kN·m)": np.array(res["bending_moment"]) / 1000,
+            "Axial (kN)": np.array(res["axial_force"]) / 1000,
+        })
+        st.dataframe(df.round(3))
+
+    except Exception as e:
+        st.error(f"Analysis failed: {str(e)}\nCommon causes: unstable beam (add more supports), zero length, invalid loads/supports.")
