@@ -1,0 +1,30 @@
+\documentclass{article}
+\usepackage{amssymb,booktabs,graphicx,hyperref,pifont}
+\usepackage[dvipsnames]{xcolor} 
+\newcommand{\cmark}{{\color{Green} \ding{51}}}
+\newcommand{\xmark}{{\color{Red} \ding{55}}}
+\newcommand{\mcrot}[4]{\multicolumn{#1}{#2}{\rlap{\rotatebox{#3}{#4}~}}}
+\newcommand{\rotangle}{45}
+%
+\begin{document}
+\begin{table}[]
+\begin{tabular}{*{12}l}
+\multicolumn{1}{l}{ } & \mcrot{1}{l}{\rotangle}{Arbitrary distributed load functions} & \mcrot{1}{l}{\rotangle}{Full GUI (no code required)} & \mcrot{1}{l}{\rotangle}{Arbitrary number of loads} & \mcrot{1}{l}{\rotangle}{Free} & \mcrot{1}{l}{\rotangle}{Open Source} & \mcrot{1}{l}{\rotangle}{Featured theory module} & \mcrot{1}{l}{\rotangle}{Detailed solution procedure} & \mcrot{1}{l}{\rotangle}{Programmable interface} & \mcrot{1}{l}{\rotangle}{Spring Supports} & \mcrot{1}{l}{\rotangle}{Any DOF combination for Supports} & \mcrot{1}{l}{\rotangle}{Any number of supports} \\ %\hline
+\cmidrule{2-12}
+{IndeterminateBeam}  	& \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \xmark & \cmark & \cmark & \cmark & \cmark  \\%\hline
+{BeamBending} 		& \cmark & \xmark & \cmark & \cmark & \cmark & \cmark & \xmark & \cmark & \xmark & \xmark & \xmark \\ %\hline
+{SymBeam}  	& \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \cmark & \xmark & \xmark & \xmark  \\%\hline
+{SymPy}  	& \cmark & \xmark & \cmark & \cmark & \cmark & \xmark & \xmark & \cmark & \xmark & \xmark & \cmark  \\%\hline
+{Beam Calculator Online}				& \xmark & \cmark & \cmark & \cmark & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark & \xmark \\ %\hline
+{Beam Guru} 							& \xmark & \cmark & \cmark & \xmark & \xmark & \xmark & \cmark & \xmark  & \xmark & \xmark & \cmark  \\ %\hline
+{MechaniCalc}			& \xmark & \cmark & \cmark & \xmark & \xmark & \cmark & \xmark & \xmark  & \xmark & \cmark & \cmark \\ %\hline
+{SkyCiv Beam} & \xmark & \cmark & \cmark & \xmark & \xmark & \xmark & \cmark & \xmark  & \xmark & \xmark & \xmark  \\ %\hline
+{Steel Beam Calculator} 			& \xmark & \cmark & \cmark & \xmark & \xmark & \xmark & \xmark & \xmark  & \xmark & \xmark & \xmark  \\ %\hline
+{Structural Beam Calculator}& \xmark & \cmark & \xmark & \cmark & \xmark & \xmark & \xmark & \xmark  & \xmark & \xmark & \xmark  \\ %\hline
+{WebStructural} 	& \xmark & \cmark & \cmark & \xmark & \xmark & \xmark & \xmark & \xmark  & \xmark & \xmark & \cmark  \\ %\hline
+{ClearCalcs} 			& \xmark & \cmark & \cmark & \xmark & \xmark & \xmark & \xmark & \xmark  & \cmark & \xmark & \cmark  \\ %\hline
+\bottomrule
+\end{tabular}
+\caption{Summary of feature comparison with existing packages}
+\end{table}
+\end{document}
